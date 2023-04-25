@@ -41,7 +41,7 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
 				CorsConfiguration config = new CorsConfiguration();
 				config.setAllowedOrigins(
 						Arrays.asList( "http://keycloak:8080",
-								"http://54.226.69.223", "http://54.226.69.223:80"));
+								"http://54.226.69.223", "http://54.226.69.223:80", "http://localhost", "http://localhost:80"));
 				// config.setAllowedOrigins(Collections.singletonList("*"));
 				config.setAllowedMethods(Collections.singletonList("*"));
 				config.setAllowCredentials(true);
