@@ -51,6 +51,7 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
 			}
 		}).and()//don't need csrf if using JWT token
 				
+				.authorizeRequests().antMatchers(HttpMethod.GET, "/user-service/customers/exist/**").permitAll().and()
 				.authorizeRequests().antMatchers(HttpMethod.GET, "/user-service/customers/**/**").hasAnyRole("ADMIN", "CUSTOMER").and()
 				.authorizeRequests().antMatchers(HttpMethod.PUT, "/user-service/customers/**/**").hasAnyRole("ADMIN", "CUSTOMER").and()
 				.authorizeRequests().antMatchers(HttpMethod.POST, "/user-service/customers/").permitAll()

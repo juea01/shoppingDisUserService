@@ -109,6 +109,19 @@ public class CustomerController {
 		}
 
 	}
+	
+	@GetMapping("/customers/exist/{username}")
+	public boolean chekcIfUserNameExist(@PathVariable String username) throws NoPermissionException {
+		logger.info("Entry to chekcIfUserNameExist {}", username);
+		boolean userNameExist = false;
+		List<Users> customer = repository.findByUsername(username);
+		if (customer.size() > 0) {
+			userNameExist = true;
+		}
+		logger.info("Existing from chekcIfUserNameExist, Number of coustomer found with given user name", customer.size());
+		return userNameExist;
+	}
+	
 
 	@PostMapping("/customers")
 	public ResponseEntity<Object> createCustomer(@Valid @RequestBody Users customer) {
@@ -143,9 +156,15 @@ public class CustomerController {
 //		String encodedPassword = passwordEncoder.encode(customer.getPassword());
 //		customer.setPassword(encodedPassword);
 		Optional<Users> existingUser = repository.findById(id);
+		existingUser.get().setFirstname(customer.getFirstname());
+		existingUser.get().setLastname(customer.getLastname());
 		existingUser.get().setUsername(customer.getUsername());
-		existingUser.get().setPhone(customer.getPhone());
+		
+		existingUser.get().setPassword(customer.getPassword());
+		
 		existingUser.get().setEmail(customer.getEmail());
+		existingUser.get().setOccupation(customer.getOccupation());
+		existingUser.get().setGender(customer.getGender());
 		
 		Users updatedCustomer = repository.saveAndFlush(existingUser.get());
 		
