@@ -54,7 +54,9 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
 				.authorizeRequests().antMatchers(HttpMethod.GET, "/user-service/customers/exist/**").permitAll().and()
 				.authorizeRequests().antMatchers(HttpMethod.GET, "/user-service/customers/**/**").hasAnyRole("ADMIN", "CUSTOMER").and()
 				.authorizeRequests().antMatchers(HttpMethod.PUT, "/user-service/customers/**/**").hasAnyRole("ADMIN", "CUSTOMER").and()
-				.authorizeRequests().antMatchers(HttpMethod.POST, "/user-service/customers/").permitAll()
+				.authorizeRequests().antMatchers(HttpMethod.POST, "/user-service/customers/").permitAll().and()
+				.authorizeRequests().antMatchers(HttpMethod.POST, "/user-service/subscription/").permitAll().and()
+				.authorizeRequests().antMatchers(HttpMethod.GET, "/user-service/subscription/email/**").permitAll()
 				.anyRequest().permitAll()
 				.and().csrf().disable() // oauth2 has already taken care of csrf protection
 				.oauth2ResourceServer().jwt().jwtAuthenticationConverter(authenticationConverter);

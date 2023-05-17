@@ -97,6 +97,12 @@
 			<artifactId>exceptionshandling</artifactId>
 			<version>0.0.1</version>
 		</dependency>
+		
+		<dependency>
+			<groupId>com.shoppingdistrict.microservices</groupId>
+			<artifactId>commonModule</artifactId>
+			<version>0.0.1</version>
+		</dependency>
 
 
 	</dependencies>

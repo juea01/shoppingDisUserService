@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -36,9 +37,13 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.shoppingdistrict.microservices.model.model.Orders;
+import com.shoppingdistrict.microservices.model.model.Subscription;
 import com.shoppingdistrict.microservices.model.model.Users;
 import com.shoppingdistrict.microservices.userservice.configuration.Configuration;
 import com.shoppingdistrict.microservices.userservice.repository.CustomerRepository;
+import com.shoppingdistrict.microservices.userservice.repository.SubscriptionRepository;
+
+import commonModule.ApiResponse;
 
 @RestController
 @RequestMapping("/user-service")
@@ -51,6 +56,9 @@ public class CustomerController {
 
 	@Autowired
 	private CustomerRepository repository;
+	
+	@Autowired
+	private SubscriptionRepository subscriptionRepository;
 
 	@Autowired
 	private Configuration configuration;
@@ -143,6 +151,36 @@ public class CustomerController {
 		return ResponseEntity.created(location).build();
 
 	}
+	
+
+	@PostMapping("/subscription")
+	public ResponseEntity<ApiResponse> createSubscription(@Valid @RequestBody Subscription subscription) {
+		logger.info("Entry to createSubscription");
+
+		logger.info("Email subscription to be created for email {}", subscription.getEmail());
+		Subscription savedSubscription = subscriptionRepository.saveAndFlush(subscription);
+		
+		ApiResponse response = new ApiResponse("Great. We have sent the link to your email for verification. Please check your email inbox, including spam and junk folders. ", null);
+		
+		logger.info("Returning newly created subscription for user{}, email{} and exiting from createSubscription", 
+				savedSubscription.getFirstname(), savedSubscription.getEmail());
+		return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
+	}
+	
+	@GetMapping("/subscription/email/{email}")
+	public boolean chekcIfUseremailExist(@PathVariable String email) throws NoPermissionException {
+		logger.info("Entry to chekcIfUseremailExist {}", email);
+		boolean userEmailExist = false;
+		List<Subscription> subsriptions = subscriptionRepository.findByEmail(email);
+		if (subsriptions.size() > 0) {
+			userEmailExist = true;
+		}
+		logger.info("Existing from chekcIfUseremailExist, Number of subscription found with given email", subsriptions.size());
+		return userEmailExist;
+	}
+	
+	
 	
 	
 	//TODO: Shall try and catch here or let error handling component to handle
