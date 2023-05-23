@@ -81,8 +81,24 @@ public class CustomerController {
 	public Users retrieveCustomerByName(@PathVariable String username) throws NoPermissionException {
 		logger.info("Entry to retrieveCustomerByName {}", username);
 		List<Users> customer = repository.findByUsername(username);
+		Users dtoUser = new Users();
+		if (customer.size()>0) {
+			dtoUser.setId(customer.get(0).getId());
+			dtoUser.setFirstname(customer.get(0).getFirstname());
+			dtoUser.setLastname(customer.get(0).getLastname());
+			
+			dtoUser.setUsername(customer.get(0).getUsername());
+			dtoUser.setEmail(customer.get(0).getEmail());
+			
+			dtoUser.setCity(customer.get(0).getCity());
+			dtoUser.setCountry(customer.get(0).getCountry());
+			
+			dtoUser.setOccupation(customer.get(0).getOccupation());
+			dtoUser.setGender(customer.get(0).getGender());
+		}
+		
 		logger.info("Existing from retrieveCustomerByName, Number of coustomer found", customer.size());
-		return customer.get(0);
+		return dtoUser;
 	}
 	
 
@@ -196,11 +212,14 @@ public class CustomerController {
 		Optional<Users> existingUser = repository.findById(id);
 		existingUser.get().setFirstname(customer.getFirstname());
 		existingUser.get().setLastname(customer.getLastname());
+		
 		existingUser.get().setUsername(customer.getUsername());
-		
-		existingUser.get().setPassword(customer.getPassword());
-		
 		existingUser.get().setEmail(customer.getEmail());
+		
+		existingUser.get().setCity(customer.getCity());
+		existingUser.get().setCountry(customer.getCountry());
+		
+		
 		existingUser.get().setOccupation(customer.getOccupation());
 		existingUser.get().setGender(customer.getGender());
 		
