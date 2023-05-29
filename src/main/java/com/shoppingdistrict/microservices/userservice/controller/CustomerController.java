@@ -163,7 +163,7 @@ public class CustomerController {
 	public ResponseEntity<Object> createCustomer(@Valid @RequestBody Users customer) {
 		logger.info("Entry to createCustomer");
 
-		logger.info("User to be created {}", customer.getUsername());
+		logger.info("New user to be created {} and has accepted terms and conditions {}", customer.getUsername(), customer.isAcceptTermsConditions());
 
 //		String encodedPassword = passwordEncoder.encode(customer.getPassword());
 //		customer.setPassword(encodedPassword);
@@ -185,7 +185,7 @@ public class CustomerController {
 	public ResponseEntity<ApiResponse> createSubscription(@Valid @RequestBody Subscription subscription) {
 		logger.info("Entry to createSubscription");
 
-		logger.info("Email subscription to be created for email {}", subscription.getEmail());
+		logger.info("Email subscription to be created for email {} and has accepted terms and conditions {}", subscription.getEmail(), subscription.isAcceptTermsConditions());
 		Subscription savedSubscription = subscriptionRepository.saveAndFlush(subscription);
 		
 		ApiResponse response = new ApiResponse("Great. We have sent the link to your email for verification. Please check your email inbox, including spam and junk folders. ", null);
