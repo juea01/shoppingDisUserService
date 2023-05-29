@@ -134,7 +134,7 @@ public class CustomerController {
 
 	}
 	
-	@GetMapping("/customers/exist/{username}")
+	@GetMapping("/customers/exist/username/{username}")
 	public boolean chekcIfUserNameExist(@PathVariable String username) throws NoPermissionException {
 		logger.info("Entry to chekcIfUserNameExist {}", username);
 		boolean userNameExist = false;
@@ -142,8 +142,20 @@ public class CustomerController {
 		if (customer.size() > 0) {
 			userNameExist = true;
 		}
-		logger.info("Existing from chekcIfUserNameExist, Number of coustomer found with given user name", customer.size());
+		logger.info("Existing from chekcIfUserNameExist, Number of coustomer found with given user name {}", customer.size());
 		return userNameExist;
+	}
+	
+	@GetMapping("/customers/exist/email/{email}")
+	public boolean chekcIfUserEmailExist(@PathVariable String email) throws NoPermissionException {
+		logger.info("Entry to chekcIfUserEmailExist {}", email);
+		boolean userEmailExist = false;
+		List<Users> customer = repository.findByEmail(email);
+		if (customer.size() > 0) {
+			userEmailExist = true;
+		}
+		logger.info("Existing from chekcIfUserEmailExist, Number of coustomer found with given user email {}", customer.size());
+		return userEmailExist;
 	}
 	
 
@@ -185,14 +197,14 @@ public class CustomerController {
 	}
 	
 	@GetMapping("/subscription/email/{email}")
-	public boolean chekcIfUseremailExist(@PathVariable String email) throws NoPermissionException {
-		logger.info("Entry to chekcIfUseremailExist {}", email);
+	public boolean chekcIfSubscriptionemailExist(@PathVariable String email) throws NoPermissionException {
+		logger.info("Entry to chekcIfSubscriptionemailExist {}", email);
 		boolean userEmailExist = false;
 		List<Subscription> subsriptions = subscriptionRepository.findByEmail(email);
 		if (subsriptions.size() > 0) {
 			userEmailExist = true;
 		}
-		logger.info("Existing from chekcIfUseremailExist, Number of subscription found with given email", subsriptions.size());
+		logger.info("Existing from chekcIfSubscriptionemailExist, Number of subscription found with given email {}", subsriptions.size());
 		return userEmailExist;
 	}
 	

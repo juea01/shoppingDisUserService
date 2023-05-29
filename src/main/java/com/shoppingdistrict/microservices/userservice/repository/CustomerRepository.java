@@ -9,4 +9,5 @@ import com.shoppingdistrict.microservices.model.model.Users;
 public interface CustomerRepository extends JpaRepository<Users, Integer> {
 
 	List<Users> findByUsername(String username);
+	List<Users> findByEmail(String email);
 }
