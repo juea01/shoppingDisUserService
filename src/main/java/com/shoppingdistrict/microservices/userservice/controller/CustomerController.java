@@ -125,9 +125,15 @@ public class CustomerController {
 
 		logger.info("Number of found customer with the user name {}", customer.size());
 		logger.info("Existing from getUserCredential, only return first customer if exist");
+		
+		logger.debug("Is Customer email verified ? {} and enabled status {}",customer.get(0).isEmailVerified(), customer.get(0).getEnabled());
 
 		if (customer.size() > 0) {
-			return customer.get(0).getUsername() + "," + customer.get(0).getPassword();
+			if(customer.get(0).isEmailVerified() && customer.get(0).getEnabled() == 1 ) {
+				return customer.get(0).getUsername() + "," + customer.get(0).getPassword();
+			} else {
+				return null;
+			}	
 		} else {
 			return null;
 		}
