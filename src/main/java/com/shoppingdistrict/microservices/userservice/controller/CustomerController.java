@@ -44,6 +44,7 @@ import com.shoppingdistrict.microservices.userservice.repository.CustomerReposit
 import com.shoppingdistrict.microservices.userservice.repository.SubscriptionRepository;
 
 import commonModule.ApiResponse;
+import commonModule.EnableStatus;
 
 @RestController
 @RequestMapping("/user-service")
@@ -122,6 +123,7 @@ public class CustomerController {
 		logger.info("Entry to getUserCredential, user name {}", username);
 
 		List<Users> customer = repository.findByUsername(username);
+		
 
 		logger.info("Number of found customer with the user name {}", customer.size());
 		logger.info("Existing from getUserCredential, only return first customer if exist");
@@ -129,7 +131,7 @@ public class CustomerController {
 		logger.debug("Is Customer email verified ? {} and enabled status {}",customer.get(0).isEmailVerified(), customer.get(0).getEnabled());
 
 		if (customer.size() > 0) {
-			if(customer.get(0).isEmailVerified() && customer.get(0).getEnabled() == 1 ) {
+			if(customer.get(0).isEmailVerified() && customer.get(0).getEnabled() == EnableStatus.ACTIVE.getValue() ) {
 				return customer.get(0).getUsername() + "," + customer.get(0).getPassword();
 			} else {
 				return null;
