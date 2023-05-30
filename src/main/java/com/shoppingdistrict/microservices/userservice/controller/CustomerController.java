@@ -45,6 +45,7 @@ import com.shoppingdistrict.microservices.userservice.repository.SubscriptionRep
 
 import commonModule.ApiResponse;
 import commonModule.EnableStatus;
+import commonModule.RandomStringGenerator;
 
 @RestController
 @RequestMapping("/user-service")
@@ -175,6 +176,7 @@ public class CustomerController {
 
 //		String encodedPassword = passwordEncoder.encode(customer.getPassword());
 //		customer.setPassword(encodedPassword);
+		customer.setEmailConfirmCode(RandomStringGenerator.generateRandomString(7));
 
 		Users savedCustomer = repository.saveAndFlush(customer);
 
@@ -185,6 +187,40 @@ public class CustomerController {
 				savedCustomer);
 
 		return ResponseEntity.created(location).build();
+
+	}
+	
+	@PostMapping("/customers/emailconfirmation")
+	public ResponseEntity<ApiResponse> confirmUserEmail(@Valid @RequestBody Users customer) {
+		logger.info("Entry to confirmUserEmail");
+
+		logger.info("User {} to confirm for email confirmation code {}", customer.getUsername(), customer.getEmailConfirmCode());
+		
+		List<Users> existingCustomer = repository.findByUsername(customer.getUsername());
+		ApiResponse response;
+		
+		if (existingCustomer.size() > 0) {
+			if (existingCustomer.get(0).getEmailConfirmCode().equalsIgnoreCase(customer.getEmailConfirmCode())) {
+				existingCustomer.get(0).setEmailVerified(true);
+				existingCustomer.get(0).setEnabled(EnableStatus.ACTIVE.getValue());
+				repository.saveAndFlush(existingCustomer.get(0));
+				
+				response = new ApiResponse("Great. You can now login to your account.", null);
+				logger.info("Email confirmation is successful and exiting from confirmUserEmail", 
+						customer.getUsername());
+				return ResponseEntity.status(HttpStatus.CREATED).body(response);
+			} else {
+				response = new ApiResponse("Email confirmation code is invalid.", null);
+				logger.info("Email confirmation code is invalid and exiting from confirmUserEmail", 
+						customer.getUsername());
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+			}
+		} else {
+			response = new ApiResponse("User with given user name not found.", null);
+			logger.info("User with given username {} not found and exiting from confirmUserEmail", 
+					customer.getUsername());
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+		}
 
 	}
 	
