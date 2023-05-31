@@ -201,6 +201,14 @@ public class CustomerController {
 		
 		if (existingCustomer.size() > 0) {
 			if (existingCustomer.get(0).getEmailConfirmCode().equalsIgnoreCase(customer.getEmailConfirmCode())) {
+				
+				if (existingCustomer.get(0).isEmailVerified() ) {
+					response = new ApiResponse("Email confirmation code is invalid.", null);
+					logger.info("Email is already verified for user {}", 
+							customer.getUsername());
+					return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+				}
+				
 				existingCustomer.get(0).setEmailVerified(true);
 				existingCustomer.get(0).setEnabled(EnableStatus.ACTIVE.getValue());
 				repository.saveAndFlush(existingCustomer.get(0));
@@ -230,6 +238,7 @@ public class CustomerController {
 		logger.info("Entry to createSubscription");
 
 		logger.info("Email subscription to be created for email {} and has accepted terms and conditions {}", subscription.getEmail(), subscription.isAcceptTermsConditions());
+		subscription.setEmailConfirmCode(RandomStringGenerator.generateRandomString(7));
 		Subscription savedSubscription = subscriptionRepository.saveAndFlush(subscription);
 		
 		ApiResponse response = new ApiResponse("Great. We have sent the link to your email for verification. Please check your email inbox, including spam and junk folders. ", null);
@@ -237,6 +246,48 @@ public class CustomerController {
 		logger.info("Returning newly created subscription for user{}, email{} and exiting from createSubscription", 
 				savedSubscription.getFirstname(), savedSubscription.getEmail());
 		return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
+	}
+	
+	@PostMapping("/subscription/emailconfirmation")
+	public ResponseEntity<ApiResponse> confirmSubscriptionEmail(@Valid @RequestBody Subscription sub) {
+		logger.info("Entry to confirmSubscriptionEmail");
+
+		logger.info("Email address {} to confirm for email confirmation code {}", sub.getEmail(), sub.getEmailConfirmCode());
+		
+		List<Subscription> subscription = subscriptionRepository.findByEmail(sub.getEmail());
+		ApiResponse response;
+		
+		if (subscription.size() > 0) {
+			if (subscription.get(0).getEmailConfirmCode().equalsIgnoreCase(sub.getEmailConfirmCode())) {
+				
+				if (subscription.get(0).isEmailVerified() ) {
+					response = new ApiResponse("Email confirmation code is invalid.", null);
+					logger.info("Email is already verified for email {}", 
+							sub.getEmail());
+					return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+				}
+				
+				subscription.get(0).setEmailVerified(true);
+				subscription.get(0).setEnabled(EnableStatus.ACTIVE.getValue());
+				subscriptionRepository.saveAndFlush(subscription.get(0));
+				
+				response = new ApiResponse("Great. You will start receiving our news letters", null);
+				logger.info("Email confirmation is successful and exiting from confirmSubscriptionEmail {}", 
+						sub.getEmail());
+				return ResponseEntity.status(HttpStatus.CREATED).body(response);
+			} else {
+				response = new ApiResponse("Email confirmation code is invalid.", null);
+				logger.info("Email confirmation code is invalid and exiting from confirmSubscriptionEmail {}", 
+						sub.getEmail());
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+			}
+		} else {
+			response = new ApiResponse("Subscription with given email address not found.", null);
+			logger.info("Subscription with given email address {} not found and exiting from confirmSubscriptionEmail", 
+					sub.getEmail());
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+		}
 
 	}
 	
