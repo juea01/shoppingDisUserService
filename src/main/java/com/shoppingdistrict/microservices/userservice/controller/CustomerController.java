@@ -1,11 +1,13 @@
 package com.shoppingdistrict.microservices.userservice.controller;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
+import javax.mail.MessagingException;
 import javax.naming.NoPermissionException;
 import javax.validation.Valid;
 import javax.ws.rs.core.Context;
@@ -13,6 +15,7 @@ import javax.ws.rs.core.Context;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -39,6 +42,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import com.shoppingdistrict.microservices.model.model.Orders;
 import com.shoppingdistrict.microservices.model.model.Subscription;
 import com.shoppingdistrict.microservices.model.model.Users;
+import com.shoppingdistrict.microservices.userservice.EmailService;
 import com.shoppingdistrict.microservices.userservice.configuration.Configuration;
 import com.shoppingdistrict.microservices.userservice.repository.CustomerRepository;
 import com.shoppingdistrict.microservices.userservice.repository.SubscriptionRepository;
@@ -65,11 +69,22 @@ public class CustomerController {
 	@Autowired
 	private Configuration configuration;
 
+//	@Autowired
+//	private PasswordEncoder passwordEncoder;
+	
 	@Autowired
-	private PasswordEncoder passwordEncoder;
+	private EmailService emailService;
 
 	@Context
 	private SecurityContext sc;
+	
+	private final String SUBJECT = "Tech District: Please confirm your Email Address";
+	private final String PATH_USER_CODE_URL = "usercode";
+	private final String PATH_SUBSCRIPTION_CODE_URL = "subcode";
+	
+	@Value("${url.confirmpage}")
+	private String urlEmailVerPage;
+	
 
 	/**
 	 * Note: From keycloak server authentication.name is giving f:63770d65-e3a9-4c3c-9e4b-b765c6b255f5:smith
@@ -127,14 +142,16 @@ public class CustomerController {
 		
 
 		logger.info("Number of found customer with the user name {}", customer.size());
-		logger.info("Existing from getUserCredential, only return first customer if exist");
+		
 		
 		logger.debug("Is Customer email verified ? {} and enabled status {}",customer.get(0).isEmailVerified(), customer.get(0).getEnabled());
 
 		if (customer.size() > 0) {
 			if(customer.get(0).isEmailVerified() && customer.get(0).getEnabled() == EnableStatus.ACTIVE.getValue() ) {
-				return customer.get(0).getUsername() + "," + customer.get(0).getPassword();
+				logger.info("Existing from getUserCredential, only return first customer if exist");
+				return customer.get(0).getUsername() + "," + customer.get(0).getPassword() + "," + customer.get(0).getEmail();
 			} else {
+				logger.info("User hasn't verify email");
 				return null;
 			}	
 		} else {
@@ -169,7 +186,7 @@ public class CustomerController {
 	
 
 	@PostMapping("/customers")
-	public ResponseEntity<Object> createCustomer(@Valid @RequestBody Users customer) {
+	public ResponseEntity<Object> createCustomer(@Valid @RequestBody Users customer) throws UnsupportedEncodingException, MessagingException {
 		logger.info("Entry to createCustomer");
 
 		logger.info("New user to be created {} and has accepted terms and conditions {}", customer.getUsername(), customer.isAcceptTermsConditions());
@@ -177,9 +194,17 @@ public class CustomerController {
 //		String encodedPassword = passwordEncoder.encode(customer.getPassword());
 //		customer.setPassword(encodedPassword);
 		customer.setEmailConfirmCode(RandomStringGenerator.generateRandomString(7));
+		
+		customer.setPassword( RandomStringGenerator.encodeString(customer.getPassword().length(),customer.getPassword()) );
+		
 
 		Users savedCustomer = repository.saveAndFlush(customer);
-
+		
+		//send mail
+//		String recipient = savedCustomer.getEmail();
+//		String content = createMailContent(savedCustomer, null);
+//		emailService.sendMails(recipient, SUBJECT, content);
+		
 		URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}")
 				.buildAndExpand(savedCustomer.getId()).toUri();
 
@@ -189,6 +214,8 @@ public class CustomerController {
 		return ResponseEntity.created(location).build();
 
 	}
+	
+	
 	
 	@PostMapping("/customers/emailconfirmation")
 	public ResponseEntity<ApiResponse> confirmUserEmail(@Valid @RequestBody Users customer) {
@@ -234,12 +261,17 @@ public class CustomerController {
 	
 
 	@PostMapping("/subscription")
-	public ResponseEntity<ApiResponse> createSubscription(@Valid @RequestBody Subscription subscription) {
+	public ResponseEntity<ApiResponse> createSubscription(@Valid @RequestBody Subscription subscription) throws UnsupportedEncodingException, MessagingException{
 		logger.info("Entry to createSubscription");
 
 		logger.info("Email subscription to be created for email {} and has accepted terms and conditions {}", subscription.getEmail(), subscription.isAcceptTermsConditions());
 		subscription.setEmailConfirmCode(RandomStringGenerator.generateRandomString(7));
 		Subscription savedSubscription = subscriptionRepository.saveAndFlush(subscription);
+		
+		//send mail
+		String recipient = savedSubscription.getEmail();
+		String content = createMailContent(null, savedSubscription);
+		emailService.sendMails(recipient, SUBJECT, content);
 		
 		ApiResponse response = new ApiResponse("Great. We have sent the link to your email for verification. Please check your email inbox, including spam and junk folders. ", null);
 		
@@ -359,6 +391,36 @@ public class CustomerController {
 
 		return  user.get(0).getOrders();
 
+	}
+	
+	private String createMailContent(Users savedCustomer, Subscription savedSubscription) {
+		StringBuilder builder = new StringBuilder();
+		
+		
+		if (savedCustomer != null) {
+			builder.append("Dear "+savedCustomer.getFirstname()+",").append(System.lineSeparator());
+			builder.append("Thank you for joining us. Please go to the provided link and enter your user name/email and code to verify your email address.").append(System.lineSeparator());
+			
+			builder.append("Link: "+ urlEmailVerPage+"/"+PATH_USER_CODE_URL).append(System.lineSeparator());
+			builder.append("User name: " + savedCustomer.getUsername()).append(System.lineSeparator());
+			builder.append("Email confirmation code: " + savedCustomer.getEmailConfirmCode()).append(System.lineSeparator());
+		} 
+		
+		if (savedSubscription != null) {
+			builder.append("Dear "+savedSubscription.getFirstname()+",").append(System.lineSeparator());
+			builder.append("Thank you for joining us. Please go to the provided link and enter your user name/email and code to verify your email address.").append(System.lineSeparator());
+			
+			builder.append("Link: "+ urlEmailVerPage+"/"+PATH_SUBSCRIPTION_CODE_URL).append(System.lineSeparator());
+			builder.append("Email: " + savedSubscription.getEmail()).append(System.lineSeparator());
+			builder.append("Email confirmation code: " + savedSubscription.getEmailConfirmCode()).append(System.lineSeparator());
+		}
+		
+		builder.append("Thank you, and we look forward to having you as part of our user community.").append(System.lineSeparator());
+		builder.append(System.lineSeparator());
+		builder.append("Warm Regard,").append(System.lineSeparator());
+		builder.append("Tech District Team").append(System.lineSeparator());
+		
+		return builder.toString();
 	}
 
 }
