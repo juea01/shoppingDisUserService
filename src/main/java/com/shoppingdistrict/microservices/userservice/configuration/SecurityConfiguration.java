@@ -5,6 +5,7 @@ import java.util.Collections;
 
 import javax.servlet.http.HttpServletRequest;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -28,6 +29,15 @@ import org.springframework.web.cors.CorsConfigurationSource;
 @EnableWebSecurity
 @EnableGlobalMethodSecurity(prePostEnabled = true, securedEnabled = true, jsr250Enabled = true)
 public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
+	
+	@Value("${keycloak.url}")
+	private String keyCloakUrl;
+	
+	@Value("${frontend.url}")
+	private String frontEndUrl;
+	
+	@Value("${gateway.url}")
+	private String gatewayUrl;
 
 	// permit all security call here as security check is doing upstream security
 	// component
@@ -44,8 +54,7 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
 				// TODO Auto-generated method stub
 				CorsConfiguration config = new CorsConfiguration();
 				config.setAllowedOrigins(
-						Arrays.asList( "http://keycloak:8080",
-								"http://54.226.69.223", "http://54.226.69.223:80", "http://localhost", "http://localhost:80"));
+						Arrays.asList( keyCloakUrl, frontEndUrl, gatewayUrl));
 				// config.setAllowedOrigins(Collections.singletonList("*"));
 				config.setAllowedMethods(Collections.singletonList("*"));
 				config.setAllowCredentials(true);

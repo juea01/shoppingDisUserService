@@ -201,9 +201,9 @@ public class CustomerController {
 		Users savedCustomer = repository.saveAndFlush(customer);
 		
 		//send mail
-//		String recipient = savedCustomer.getEmail();
-//		String content = createMailContent(savedCustomer, null);
-//		emailService.sendMails(recipient, SUBJECT, content);
+		String recipient = savedCustomer.getEmail();
+		String content = createMailContent(savedCustomer, null);
+		emailService.sendMails(recipient, SUBJECT, content);
 		
 		URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}")
 				.buildAndExpand(savedCustomer.getId()).toUri();
@@ -399,23 +399,25 @@ public class CustomerController {
 		
 		if (savedCustomer != null) {
 			builder.append("Dear "+savedCustomer.getFirstname()+",").append(System.lineSeparator());
-			builder.append("Thank you for joining us. Please go to the provided link and enter your user name/email and code to verify your email address.").append(System.lineSeparator());
-			
+			builder.append(System.lineSeparator());
+			builder.append("Thank you for joining us. Please follow the provided link to verify your email address by entering your username/email and the verification code.").append(System.lineSeparator());
+			builder.append(System.lineSeparator());
 			builder.append("Link: "+ urlEmailVerPage+"/"+PATH_USER_CODE_URL).append(System.lineSeparator());
-			builder.append("User name: " + savedCustomer.getUsername()).append(System.lineSeparator());
-			builder.append("Email confirmation code: " + savedCustomer.getEmailConfirmCode()).append(System.lineSeparator());
+			builder.append("User Name: " + savedCustomer.getUsername()).append(System.lineSeparator());
+			builder.append("Email Confirmation Code: " + savedCustomer.getEmailConfirmCode()).append(System.lineSeparator());
 		} 
 		
 		if (savedSubscription != null) {
 			builder.append("Dear "+savedSubscription.getFirstname()+",").append(System.lineSeparator());
-			builder.append("Thank you for joining us. Please go to the provided link and enter your user name/email and code to verify your email address.").append(System.lineSeparator());
-			
+			builder.append(System.lineSeparator());
+			builder.append("Thank you for joining us. Please follow the provided link to verify your email address by entering your username/email and the verification code.").append(System.lineSeparator());
+			builder.append(System.lineSeparator());
 			builder.append("Link: "+ urlEmailVerPage+"/"+PATH_SUBSCRIPTION_CODE_URL).append(System.lineSeparator());
 			builder.append("Email: " + savedSubscription.getEmail()).append(System.lineSeparator());
-			builder.append("Email confirmation code: " + savedSubscription.getEmailConfirmCode()).append(System.lineSeparator());
+			builder.append("Email Confirmation Code: " + savedSubscription.getEmailConfirmCode()).append(System.lineSeparator());
 		}
-		
-		builder.append("Thank you, and we look forward to having you as part of our user community.").append(System.lineSeparator());
+		builder.append(System.lineSeparator());
+		builder.append("Thank you, and we are excited to have you as part of our user community.").append(System.lineSeparator());
 		builder.append(System.lineSeparator());
 		builder.append("Warm Regard,").append(System.lineSeparator());
 		builder.append("Tech District Team").append(System.lineSeparator());
