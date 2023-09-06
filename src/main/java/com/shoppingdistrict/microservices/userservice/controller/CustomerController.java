@@ -40,6 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.shoppingdistrict.microservices.model.model.Orders;
+import com.shoppingdistrict.microservices.model.model.Subject;
 import com.shoppingdistrict.microservices.model.model.Subscription;
 import com.shoppingdistrict.microservices.model.model.Users;
 import com.shoppingdistrict.microservices.userservice.EmailService;
@@ -183,6 +184,7 @@ public class CustomerController {
 		logger.info("Existing from chekcIfUserEmailExist, Number of coustomer found with given user email {}", customer.size());
 		return userEmailExist;
 	}
+	
 	
 
 	@PostMapping("/customers")
