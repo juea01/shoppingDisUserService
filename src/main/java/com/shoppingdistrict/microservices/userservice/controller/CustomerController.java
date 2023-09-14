@@ -150,7 +150,7 @@ public class CustomerController {
 		if (customer.size() > 0) {
 			if(customer.get(0).isEmailVerified() && customer.get(0).getEnabled() == EnableStatus.ACTIVE.getValue() ) {
 				logger.info("Existing from getUserCredential, only return first customer if exist");
-				return customer.get(0).getUsername() + "," + customer.get(0).getPassword() + "," + customer.get(0).getEmail();
+				return customer.get(0).getUsername() + "," + customer.get(0).getPassword() + "," + customer.get(0).getEmail() + "," + customer.get(0).getRole();
 			} else {
 				logger.info("User hasn't verify email");
 				return null;
