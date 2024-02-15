@@ -3,6 +3,9 @@ package com.shoppingdistrict.microservices.userservice.controller;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -55,6 +58,8 @@ import com.shoppingdistrict.microservices.model.model.Subject;
 import com.shoppingdistrict.microservices.model.model.Subscription;
 import com.shoppingdistrict.microservices.model.model.Users;
 import com.shoppingdistrict.microservices.userservice.EmailService;
+import com.shoppingdistrict.microservices.userservice.KeyCloakService;
+import com.shoppingdistrict.microservices.userservice.PaymentManagementService;
 import com.shoppingdistrict.microservices.userservice.configuration.Configuration;
 import com.shoppingdistrict.microservices.userservice.repository.CustomerRepository;
 import com.shoppingdistrict.microservices.userservice.repository.PaidSubscriptionRepository;
@@ -71,8 +76,13 @@ import com.stripe.model.Event;
 import com.stripe.model.EventDataObjectDeserializer;
 import com.stripe.model.StripeObject;
 import com.stripe.model.checkout.Session;
+import com.stripe.model.Invoice;
+import com.stripe.model.LineItem;
+import com.stripe.model.LineItemCollection;
+import com.stripe.model.PaymentIntent;
 import com.stripe.net.Webhook;
 import com.stripe.param.checkout.SessionCreateParams;
+
 import org.json.JSONObject;
 
 @RestController
@@ -89,7 +99,7 @@ public class CustomerController {
 
 	@Autowired
 	private SubscriptionRepository subscriptionRepository;
-	
+
 	@Autowired
 	private PaidSubscriptionRepository paidSubsRepo;
 
@@ -102,6 +112,12 @@ public class CustomerController {
 	@Autowired
 	private EmailService emailService;
 
+	@Autowired
+	private KeyCloakService keyCloakService;
+
+	@Autowired
+	private PaymentManagementService paymentManagementService;
+
 	@Context
 	private SecurityContext sc;
 
@@ -111,37 +127,37 @@ public class CustomerController {
 
 	@Value("${url.confirmpage}")
 	private String urlEmailVerPage;
-	
+
 	@Value("${stripe.secretkey}")
 	private String stripeSecretKey;
-	
+
 	@Value("${stripe.paymentsuccess.url}")
 	private String stripePaymentSuccessUrl;
-	
+
 	@Value("${stripe.endpointsecret}")
 	private String stripeEndPointKey;
 
 	private Map<String, String> sessionUserNamStore = new HashMap<>();
-	private Object storeLock = new Object();
 	
+	private Object storeLock = new Object();
+
 	@Value("${keycloak.management.id}")
 	private String keycloakManagementClientId;
-	
+
 	@Value("${keycloak.management.secret}")
 	private String keycloakManagementClientSecret;
-	
+
 	@Value("${keycloak.token.url}")
 	private String keycloakManagementTokenUrl;
-	
+
 	@Value("${keycloak.user.evict.url}")
 	private String keycloakUserEvictUrl;
-	
+
 	@Value("${keycloak.management.scope}")
 	private String keycloakManagementScope;
-	
+
 	@Value("${keycloak.management.grant_type}")
 	private String keycloakManagementGrantType;
-	
 
 	/**
 	 * Note: From keycloak server authentication.name is giving
@@ -184,63 +200,67 @@ public class CustomerController {
 		return name;
 
 	}
-	
 
-	private String getKeyCloakManagementAccessToken()throws Exception {
-		logger.info("Entry to getKeyCloakManagementAccessToken");
-		
-		HttpHeaders headers = new HttpHeaders();
-		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-		String requestBody= "client_id="+keycloakManagementClientId+"&client_secret="+keycloakManagementClientSecret
-				+"&scope="+keycloakManagementScope+"&grant_type="+keycloakManagementGrantType;
-		
-		HttpEntity<String> reqEntity = new HttpEntity<>(requestBody, headers);
-		RestTemplate restTemplate = new RestTemplate();
-		ResponseEntity<String> responseEntity = restTemplate.exchange(keycloakManagementTokenUrl, HttpMethod.POST, reqEntity, String.class);
-		
-		if(responseEntity.getStatusCode().is2xxSuccessful()) {
-			logger.info("Token Code received. Exiting from getKeyCloakManagementAccessToken");
-			JSONObject jsonObject = new JSONObject(responseEntity.getBody().toString());
-			return jsonObject.getString("access_token");
-		} else {
-			logger.info("Error requesting Token Code {}");
-			throw new Exception(" Error requesting Token for management");
-		}
-	}
-	
-	private boolean evictUserFromKeycloakCache(String accessToken, String userId)throws Exception {
-		logger.info("Entry to evictUserFromKeycloakCache for userId {}", userId);
-		
-		HttpHeaders headers = new HttpHeaders();
-		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-		headers.set("Authorization", "Bearer "+ accessToken);
-		
-		String requestBody= "userId="+userId;
-		
-		HttpEntity<String> reqEntity = new HttpEntity<>(requestBody, headers);
-		RestTemplate restTemplate = new RestTemplate();
-		ResponseEntity<String> responseEntity = restTemplate.exchange(keycloakUserEvictUrl, HttpMethod.POST, reqEntity, String.class);
-		
-		if(responseEntity.getStatusCode().is2xxSuccessful()) {
-			logger.info("User {} evicted successfully from keycloak cache, exiting from evictUserFromKeycloakCache", userId);
-			return true;
-		} else {
-			logger.info("Error occurred when evicting user from keycloak cache");
-			throw new Exception("Error occurred when evicting user from keycloak cache");
-		}
-	}
+//	private String getKeyCloakManagementAccessToken() throws Exception {
+//		logger.info("Entry to getKeyCloakManagementAccessToken");
+//
+//		HttpHeaders headers = new HttpHeaders();
+//		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+//		String requestBody = "client_id=" + keycloakManagementClientId + "&client_secret="
+//				+ keycloakManagementClientSecret + "&scope=" + keycloakManagementScope + "&grant_type="
+//				+ keycloakManagementGrantType;
+//
+//		HttpEntity<String> reqEntity = new HttpEntity<>(requestBody, headers);
+//		RestTemplate restTemplate = new RestTemplate();
+//		ResponseEntity<String> responseEntity = restTemplate.exchange(keycloakManagementTokenUrl, HttpMethod.POST,
+//				reqEntity, String.class);
+//
+//		if (responseEntity.getStatusCode().is2xxSuccessful()) {
+//			logger.info("Token Code received. Exiting from getKeyCloakManagementAccessToken");
+//			JSONObject jsonObject = new JSONObject(responseEntity.getBody().toString());
+//			return jsonObject.getString("access_token");
+//		} else {
+//			logger.info("Error requesting Token Code {}");
+//			throw new Exception(" Error requesting Token for management");
+//		}
+//	}
+
+//	private boolean evictUserFromKeycloakCache(String accessToken, String userId) throws Exception {
+//		logger.info("Entry to evictUserFromKeycloakCache for userId {}", userId);
+//
+//		HttpHeaders headers = new HttpHeaders();
+//		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+//		headers.set("Authorization", "Bearer " + accessToken);
+//
+//		String requestBody = "userId=" + userId;
+//
+//		HttpEntity<String> reqEntity = new HttpEntity<>(requestBody, headers);
+//		RestTemplate restTemplate = new RestTemplate();
+//		ResponseEntity<String> responseEntity = restTemplate.exchange(keycloakUserEvictUrl, HttpMethod.POST, reqEntity,
+//				String.class);
+//
+//		if (responseEntity.getStatusCode().is2xxSuccessful()) {
+//			logger.info("User {} evicted successfully from keycloak cache, exiting from evictUserFromKeycloakCache",
+//					userId);
+//			return true;
+//		} else {
+//			logger.info("Error occurred when evicting user from keycloak cache");
+//			throw new Exception("Error occurred when evicting user from keycloak cache");
+//		}
+//	}
 
 	@PostMapping("/subscription/create-checkout-session/{priceId}/{username}/{keycloakUserId}")
-	public ResponseEntity<Object> createCheckoutSession(@PathVariable String priceId, @PathVariable String username, @PathVariable String keycloakUserId) {
-		logger.info("Entry to createCheckoutSession for priceId {}, username {} and keycloak User Id {}", priceId, username, keycloakUserId);
+	public ResponseEntity<Object> createCheckoutSession(@PathVariable String priceId, @PathVariable String username,
+			@PathVariable String keycloakUserId) {
+		logger.info("Entry to createCheckoutSession for priceId {}, username {} and keycloak User Id {}", priceId,
+				username, keycloakUserId);
 		// Need to use secret key for api-key not Publishable key
 		Stripe.apiKey = stripeSecretKey;
 		String YOUR_DOMAIN = stripePaymentSuccessUrl;
 
 		try {
 			SessionCreateParams params = new SessionCreateParams.Builder()
-					.setMode(SessionCreateParams.Mode.SUBSCRIPTION)
-					.setSuccessUrl(YOUR_DOMAIN)
+					.setMode(SessionCreateParams.Mode.SUBSCRIPTION).setSuccessUrl(YOUR_DOMAIN)
 					// .setCancelUrl(domainUrl + "/canceled.html")
 					.addLineItem(SessionCreateParams.LineItem.builder().setQuantity(1L)
 							// Provide the exact Price ID (for example, pr_1234) of the product you want to
@@ -253,7 +273,7 @@ public class CustomerController {
 			synchronized (storeLock) {
 				logger.info("Storing created session id and username pair in temp key store {} {}", session.getId(),
 						username);
-				sessionUserNamStore.put(session.getId(), username+","+keycloakUserId);
+				sessionUserNamStore.put(session.getId(), username + "," + keycloakUserId);
 			}
 
 			RedirectView redirectView = new RedirectView(session.getUrl());
@@ -271,79 +291,100 @@ public class CustomerController {
 		}
 
 	}
-	
+
+	@PostMapping("/subscription/manage-billing-session/{username}")
+	public ResponseEntity<Object> manageBillingSession(@PathVariable String username) throws Exception {
+		logger.info("Entry to manageBillingSession for  username {} ", username);
+		return paymentManagementService.manageBilling(username);
+	}
 
 	@PostMapping("/subscription/webhook")
 	public String provisionSubscription(@RequestBody String payload,
 			@RequestHeader("Stripe-Signature") String sigHeader) throws Exception {
-		logger.info("Entry to provisionSubscription {}", payload);
+		logger.info("Entry to provisionSubscription {}");
 		Stripe.apiKey = stripeSecretKey;
 		String endpointSecret = stripeEndPointKey;
 		Event event = null;
+		com.stripe.model.Subscription subscription = null;
+		Invoice invoice = null;
 		try {
 			event = Webhook.constructEvent(payload, sigHeader, endpointSecret);
 
+			EventDataObjectDeserializer dataObjectDeserializer = event.getDataObjectDeserializer();
+			StripeObject stripeObject = null;
+			if (dataObjectDeserializer.getObject().isPresent()) {
+				stripeObject = dataObjectDeserializer.getObject().get();
+			} else {
+				logger.error("Can't get Stripe Object from payload. API Version {}", Stripe.VERSION);
+				throw new Exception("Can't get Stripe Object from payload.");
+			}
+			
 			switch (event.getType()) {
 			case "checkout.session.completed":
-				JSONObject jsonObject = new JSONObject(payload);
 
-				if (jsonObject.getJSONObject("data") != null
-						&& jsonObject.getJSONObject("data").getJSONObject("object") != null) {
-					JSONObject object = jsonObject.getJSONObject("data").getJSONObject("object");
-					String sessionId = object.getString("id");
-					String stripeCustomerId = object.getString("customer");
+				Session session = (Session) stripeObject;
+				String sessionId = session.getId();
+				String stripeCustomerId = session.getCustomer();
+				String paymentUserEmail = session.getCustomerEmail();
 
-					JSONObject customerDetObject = object.getJSONObject("customer_details");
-					if (customerDetObject != null) {
-						String paymentUserEmail = customerDetObject.getString("email");
-						String paymentUserName = customerDetObject.getString("name");
-						
-						logger.info("Name {} and email {} used for successful payment for session id {}", paymentUserName,
-								paymentUserEmail, sessionId);
-						if (!updateCustomerRoleByEmail(paymentUserEmail, "PREMIUM")) {
-							logger.warn("Updating customer role with given  email is failing {}", paymentUserEmail);
-							logger.warn("User might have provided different email for payment on stripe");
+				logger.info("Customer with email {} has made successful payment for session id {} and payload {}",
+						paymentUserEmail, sessionId, payload);
 
-							// Using String Builder here is not necessary
-							String[] userDetail = null;
-							synchronized (storeLock) {
-								logger.info(
-										"Retrieving username from temp key store for session id  {} completed event",
-										sessionId);
-								//userDetail should have {username, keycloak user id}
-								userDetail = sessionUserNamStore.get(sessionId).split(",");
+				// Using String Builder here is not necessary
+				String[] userDetail = null;
+				synchronized (storeLock) {
+					logger.info("Retrieving username from temp key store for session id  {} completed event",
+							sessionId);
+					// userDetail should have {username, keycloak user id}
+					userDetail = sessionUserNamStore.get(sessionId).split(",");
 
-								if (userDetail != null) {
-									logger.info("Trying to update user role with username {} from session id {}",
-											userDetail[0], sessionId);
-									evictUserFromKeycloakCache(getKeyCloakManagementAccessToken(), userDetail[1]);
-									sessionUserNamStore.remove(sessionId);
-									updateCustomerRoleByUserName(userDetail[0], "PREMIUM");
-									storeStripeCustomerInfo(stripeCustomerId, repository.findByUsername(userDetail[0]).get(0),  null);
-								} else {
-									logger.warn("Having issue updating user role with stripe provided email {}",
-											paymentUserEmail);
-								}
-							}
-
-						} else {
-							//userDetail should have {username, keycloak user id}
-							String[] userDetail = sessionUserNamStore.get(sessionId).split(",");
-							evictUserFromKeycloakCache(getKeyCloakManagementAccessToken(), userDetail[1]);
-							synchronized (storeLock) {
-							 sessionUserNamStore.remove(sessionId);	
-							}
-							storeStripeCustomerInfo(stripeCustomerId, repository.findByUsername(userDetail[0]).get(0),  null);
-						}
+					if (userDetail != null) {
+						logger.info("Trying to update user role with username {} from session id {}", userDetail[0],
+								sessionId);
+						keyCloakService.evictUserFromKeycloakCache(keyCloakService.getKeyCloakManagementAccessToken(),
+								userDetail[1]);
+						sessionUserNamStore.remove(sessionId);
+						paymentManagementService.updateCustomerRoleByUserName(userDetail[0], "PREMIUM");
+						paymentManagementService.storeStripeCustomerInfo(stripeCustomerId,
+								repository.findByUsername(userDetail[0]).get(0), null);
 					} else {
-						logger.info("No customer detail object is present in payload");
+						logger.warn("Having issue updating user role with stripe provided email {}", paymentUserEmail);
+						throw new Exception(
+								"Having issue updating user role with stripe provided email " + paymentUserEmail);
 					}
-
-				} else {
-					logger.info("No JSON data or JSON object is present in payload");
 				}
-			default:
+				break;
 
+			case "invoice.payment_failed":
+				invoice = (com.stripe.model.Invoice) stripeObject;
+				logger.info("Payment failed by Stripe Customer Id {} and  due date is {}", invoice.getCustomer(),
+						invoice.getDueDate());
+				paymentManagementService.updateStripeCustomerInfo(invoice.getCustomer(), 0);
+				break;
+			case "invoice.payment_succeeded":
+				invoice = (com.stripe.model.Invoice) stripeObject;
+				//This check is needed just in case as payment amount should be more that 0
+				if (invoice.getAmountPaid()> 0) {
+					logger.info("Payment has been made by Stripe Customer Id {} and amount is {}", invoice.getCustomer(), invoice.getAmountPaid());
+					paymentManagementService.manageSuccessfulPayment(invoice.getCustomer());	
+				}
+				break;
+				
+			case "customer.subscription.updated":
+				subscription = (com.stripe.model.Subscription) stripeObject;
+				if (subscription.getCancelAt() != null && subscription.getCancelAt() > 0) {
+					LocalDateTime dateTime = LocalDateTime
+							.ofInstant(Instant.ofEpochMilli(subscription.getCancelAt()), ZoneId.of("UTC"));
+					logger.info("Subscription has been alerted to cancel on date {} for Customer id {}", dateTime,
+							subscription.getCustomer());
+					paymentManagementService.updateStripeCustomerInfo(subscription.getCustomer(),
+							subscription.getCancelAt());
+				}
+				
+				break;
+
+			default:
+				break;
 			}
 
 		} catch (SignatureVerificationException e) {
@@ -355,23 +396,6 @@ public class CustomerController {
 		logger.info("Exiting from provisionSubscription");
 		return "";
 
-	}
-	
-	
-	private void storeStripeCustomerInfo(String stripeCusId, Users user, String subscriptionType) {
-		logger.info("Entry to storeStripeCustomerInfo for user name {}, stripe customer id {} "
-				+ "and subscription type {}", user.getUsername(), stripeCusId, subscriptionType);
-		PaidSubscription paidSubscription = new PaidSubscription();
-		paidSubscription.setActiveSubscription(true);
-		paidSubscription.setSubscriptionType(subscriptionType);
-		paidSubscription.setThirdPartyUserId(stripeCusId);
-		paidSubscription.setUser(user);
-		paidSubscription.setLastPaidDate(new Timestamp(System.currentTimeMillis()));
-		paidSubsRepo.saveAndFlush(paidSubscription);
-		logger.info("Successfully stored stripe customer id {} and related info in database", stripeCusId);
-		
-		logger.info("Exiting from storeStripeCustomerInfo for user name {}, stripe customer id {} "
-				+ "and subscription type {}", user.getUsername(), stripeCusId, subscriptionType);
 	}
 
 	/**
@@ -391,12 +415,10 @@ public class CustomerController {
 
 		logger.info("Number of found customer with the user name {}", customer.size());
 
-		logger.debug("Is Customer email verified ? {} and enabled status {}", customer.get(0).isEmailVerified(),
-				customer.get(0).getEnabled());
-
 		if (customer.size() > 0) {
 			if (customer.get(0).isEmailVerified() && customer.get(0).getEnabled() == EnableStatus.ACTIVE.getValue()) {
-				logger.info("Exiting from getUserCredential, only return first customer if exist, email {}, role {}",customer.get(0).getEmail(),customer.get(0).getRole());
+				logger.info("Exiting from getUserCredential, only return first customer if exist, email {}, role {}",
+						customer.get(0).getEmail(), customer.get(0).getRole());
 				return customer.get(0).getUsername() + "," + customer.get(0).getPassword() + ","
 						+ customer.get(0).getEmail() + "," + customer.get(0).getRole();
 			} else {
@@ -435,36 +457,6 @@ public class CustomerController {
 		return userEmailExist;
 	}
 
-	private boolean updateCustomerRoleByEmail(String email, String role) {
-		logger.info("Entry to updateCustomerRoleByEmail {}", email);
-		List<Users> customer = repository.findByEmail(email);
-		if (customer.size() > 0) {
-			Users existingUser = customer.get(0);
-			existingUser.setRole(role);
-			repository.saveAndFlush(existingUser);
-			logger.info("User Role updated to PREMIUM, exiting from updateCustomerRoleByEmail ", email);
-			return true;
-		} else {
-			logger.info("No user with given email {} found. Exiting from updateCustomerRoleByEmail", email);
-		}
-		return false;
-	}
-	
-	private boolean updateCustomerRoleByUserName(String username, String role) {
-		logger.info("Entry to updateCustomerRoleByUserName {}", username);
-		List<Users> customer = repository.findByUsername(username);
-		if (customer.size() > 0) {
-			Users existingUser = customer.get(0);
-			existingUser.setRole(role);
-			repository.saveAndFlush(existingUser);
-			logger.info("User Role updated to PREMIUM, exiting from updateCustomerRoleByUserName ", username);
-			return true;
-		} else {
-			logger.info("No user with given username {} found. Exiting from updateCustomerRoleByUserName", username);
-		}
-		return false;
-	}
-
 	@PostMapping("/customers")
 	public ResponseEntity<Object> createCustomer(@Valid @RequestBody Users customer)
 			throws UnsupportedEncodingException, MessagingException {
@@ -476,6 +468,7 @@ public class CustomerController {
 //		String encodedPassword = passwordEncoder.encode(customer.getPassword());
 //		customer.setPassword(encodedPassword);
 		customer.setEmailConfirmCode(RandomStringGenerator.generateRandomString(7));
+		customer.setRole("CUSTOMER");
 
 		customer.setPassword(
 				RandomStringGenerator.encodeString(customer.getPassword().length(), customer.getPassword()));
