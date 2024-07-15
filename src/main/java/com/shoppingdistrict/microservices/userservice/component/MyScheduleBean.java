@@ -31,7 +31,11 @@ public class MyScheduleBean {
 	@Autowired
 	private KeyCloakService keyCloakService;
 
-	@Scheduled(fixedRate = 60000)
+	/**
+	 * 12 hours in milliseconds is 43200000
+	 * @throws Exception
+	 */
+	@Scheduled(fixedRate = 43200000)
 	public void performTask() throws Exception {
 		logger.info("Daily Schedule task for deactivating expired premium user running.");
 		processExpiredSubscriptions();
